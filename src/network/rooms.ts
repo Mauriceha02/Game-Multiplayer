@@ -9,6 +9,7 @@ interface Peer {
 export interface RoomInvite { game: GameId; room: string; key: string }
 const hex = '[a-f0-9]{32}';
 export function readRoomInvite(raw: string): RoomInvite | null {
+  if (raw.length > 2048) return null;
   let value = raw.trim();
   if (/^https?:\/\//.test(value)) {
     try { const url = new URL(value); value = new URLSearchParams(url.hash.replace(/^#(?:game|gruselino)\?/, '')).get('invite') ?? ''; } catch { return null; }
@@ -37,10 +38,11 @@ export class RoomLink {
     signal.addEventListener('abort', abort, { once: true });
     const timer = setTimeout(abort, 10000);
     try {
-      const response = await fetch(this.service + '/v1/rooms/' + path, {
+      let response: Response;
+      try { response = await fetch(this.service + '/v1/rooms/' + path, {
         method, mode: 'cors', credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer', signal: timeout.signal,
         headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
+      }); } catch { throw new Error(signal.aborted ? 'Verbindung abgebrochen.' : 'Der Verbindungsdienst ist nicht erreichbar. Bitte versuche es erneut oder nutze den Code-Modus.'); }
       if (!response.ok) {
         if (response.status === 404 || response.status === 410) throw new Error('Diese Einladung ist abgelaufen oder wurde beendet.');
         if (response.status === 409) throw new Error('Diese Einladung wird bereits verwendet. Bitte erstelle eine neue.');

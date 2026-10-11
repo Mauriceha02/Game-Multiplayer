@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { RoomLink, readRoomInvite } from '../public/app/network/rooms.js';
 import { encodeSignal } from '../public/app/network/signals.js';
+import worker, { SignalRoom } from '../worker/index.mjs';
 import { RoomStore } from '../worker/room-store.mjs';
 
 const sdp = 'v=0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=candidate:1 1 UDP 1 127.0.0.1 5000 typ host\r\n';
@@ -81,4 +82,27 @@ test('one shared link exchanges both signals automatically, while cancelled host
     const count = requests.length; await new Promise(resolve => setTimeout(resolve, 1600)); assert.equal(requests.length, count);
     assert(readRoomInvite(next)); assert.deepEqual(errors, []);
   } finally { host.close(); guest.close(); globalThis.fetch = previous.fetch; if (previous.crypto) Object.defineProperty(globalThis, 'crypto', previous.crypto); else delete globalThis.crypto; }
+});
+
+
+test('HTTP guards reject foreign origins and oversized bodies without breaking later invitations', { skip: typeof Request === 'undefined' }, async () => {
+  const origin = 'https://mauriceha02.github.io', url = 'https://service.test/v1/rooms/' + 'c'.repeat(32);
+  const data = storage(), object = new SignalRoom({ storage: data, blockConcurrencyWhile: callback => callback() });
+  let allowed = true;
+  const env = { ALLOWED_ORIGINS: origin, REQUEST_LIMITER: { limit: async () => ({ success: allowed }) }, ROOMS: { idFromName: value => value, get: () => object } };
+  const send = (method, suffix = '', key = hostKey, content, headers = {}) => worker.fetch(new Request(url + suffix, { method, headers: { Origin: origin, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', ...headers }, ...(content === undefined ? {} : { body: content }) }), env);
+  assert.equal((await send('GET', '/offer', guestKey, undefined, { Origin: 'https://attacker.test' })).status, 403);
+  assert.equal((await send('GET', '/offer', guestKey, undefined, { Origin: '' })).status, 403);
+  const preflight = await send('OPTIONS');
+  assert.equal(preflight.status, 204); assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+  assert.equal((await send('PUT', '', hostKey, '{}', { 'Content-Type': 'text/plain' })).status, 415);
+  assert.equal((await send('PUT', '', hostKey, 'x'.repeat(70001), { 'Content-Length': '70001' })).status, 413);
+  assert.equal((await send('PUT', '', hostKey, 'ß'.repeat(35001))).status, 413);
+  assert.equal((await send('PUT', '', hostKey, 'broken')).status, 400);
+  const offer = signal('offer');
+  const created = await send('PUT', '', hostKey, JSON.stringify({ offer, guest: guestKey }));
+  assert.equal(created.status, 200); assert.equal(created.headers.get('cache-control'), 'no-store');
+  const fetched = await send('GET', '/offer', guestKey); assert.deepEqual(await fetched.json(), { offer });
+  allowed = false; assert.equal((await send('GET', '/answer')).status, 429); allowed = true;
+  assert.equal((await send('DELETE')).status, 200); assert.deepEqual(data.peek(), { room: null, alarm: null });
 });

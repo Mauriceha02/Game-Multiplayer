@@ -5,7 +5,7 @@ const json = (value, status = 200, headers = {}) => new Response(JSON.stringify(
 async function body(request) {
   if (!['PUT', 'POST'].includes(request.method)) return undefined;
   if (request.headers.get('content-type') !== 'application/json') throw new RoomError(415, 'JSON erwartet.');
-  if (Number(request.headers.get('content-length')) > MAX_BODY) throw new RoomError(413, 'Anfrage zu groß.');
+  if (Number(request.headers.get('content-length')) > MAX_BODY) { await request.body?.cancel().catch(() => {}); throw new RoomError(413, 'Anfrage zu groß.'); }
   const reader = request.body?.getReader(); if (!reader) throw new RoomError(400, 'Anfrage fehlt.');
   let size = 0; const decoder = new TextDecoder(); let text = '';
   try {
@@ -43,9 +43,11 @@ export default {
     if (env.REQUEST_LIMITER && !(await env.REQUEST_LIMITER.limit({ key: request.headers.get('cf-connecting-ip') ?? 'unknown' })).success) return json({ error: 'Zu viele Anfragen.' }, 429, cors);
     try {
       const id = path.pathname.split('/')[3];
-      const response = await env.ROOMS.get(env.ROOMS.idFromName(id)).fetch(request);
+      const content = await body(request);
+      const internal = new Request(request.url, { method: request.method, headers: { Authorization: key, 'Content-Type': 'application/json' }, ...(content === undefined ? {} : { body: JSON.stringify(content) }) });
+      const response = await env.ROOMS.get(env.ROOMS.idFromName(id)).fetch(internal);
       const headers = new Headers(response.headers); Object.entries(cors).forEach(([key, value]) => headers.set(key, value));
       return new Response(response.body, { status: response.status, headers });
-    } catch { return json({ error: 'Verbindungsdienst nicht verfügbar.' }, 503, cors); }
+    } catch (error) { return json({ error: error instanceof RoomError ? error.message : 'Verbindungsdienst nicht verfügbar.' }, error instanceof RoomError ? error.status : 503, cors); }
   },
 };
