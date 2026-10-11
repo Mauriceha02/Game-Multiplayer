@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#173e34">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Zusammen">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icon-180.png">
+  <link rel="stylesheet" href="./assets/demo.css">
+  <title>Gemeinsam spielen</title>
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="./">Gemeinsam<span aria-hidden="true">●</span></a><span class="version">Version {{VERSION}}</span></header>
+  <main>
+    <div class="intro"><span class="eyebrow">Phase10 &amp; Gruselino</span><h1>Zwei Geräte.<br>Eine Partie.</h1><p>Teste die Verbindung mit deinem Mitspieler. Öffnet diese Seite auf beiden Geräten im selben WLAN.</p><span class="test-tag">Verbindungstest · noch keine Spielpartie</span></div>
+    <p id="connection-status" class="connection-status" data-state="idle" role="status">Noch nicht verbunden</p>
+    <div id="setup" class="setup-grid">
+      <form id="create" class="panel"><span class="step-mark" aria-hidden="true">1</span><h2>Einladung erstellen</h2><p>Du lädst ein und wartest auf deinen Mitspieler.</p><label for="game">Spiel</label><select id="game"><option value="phase10">Phase10</option><option value="gruselino">Gruselino</option></select><label class="check-label" for="internet"><input id="internet" type="checkbox"><span>Internet-Hilfe für die Verbindung nutzen<small>Falls der reine WLAN-Test nicht klappt. Googles STUN-Dienst hilft beim Verbindungsaufbau; Testpunkte werden direkt übertragen.</small></span></label><button class="primary" type="submit">Einladung erstellen <span aria-hidden="true">→</span></button></form>
+      <form id="join" class="panel"><span class="step-mark" aria-hidden="true">2</span><h2 id="join-title">Einladung annehmen</h2><p>Füge den Einladungscode oder Einladungslink deines Mitspielers ein.</p><label for="incoming-code">Einladung</label><textarea id="incoming-code" placeholder="GM1.… oder Einladungslink" rows="4" maxlength="34816" required spellcheck="false" autocapitalize="off" autocomplete="off"></textarea><button class="primary" type="submit">Beitreten <span aria-hidden="true">→</span></button></form>
+    </div>
+    <section id="exchange" class="panel exchange" hidden><span class="eyebrow">Fast verbunden</span><h2 id="exchange-title">Einladung teilen</h2><p id="exchange-help"></p><label id="outgoing-label" for="outgoing-code">Dein Einladungscode</label><textarea id="outgoing-code" readonly rows="3" spellcheck="false" aria-describedby="code-note"></textarea><div class="share-actions"><button id="share" class="primary" type="button">Teilen …</button><button id="copy" class="secondary" type="button">Code kopieren</button></div><p id="code-note" class="small">Der Code gilt 15 Minuten. Lass dieses Fenster offen und gib den Code nur deinem Mitspieler.</p><form id="answer"><label for="answer-code">Antwortcode deines Mitspielers</label><textarea id="answer-code" placeholder="Antwortcode hier einfügen" rows="3" maxlength="34816" required spellcheck="false" autocapitalize="off" autocomplete="off"></textarea><button class="primary" type="submit">Verbindung starten</button></form></section>
+    <section id="connected-panel" class="panel connected-panel" hidden><span class="eyebrow" id="session-game">Phase10</span><h2>Ihr seid verbunden.</h2><p id="your-role"></p><div class="counter-display"><strong id="counter" aria-live="polite">0</strong><span>gemeinsame Testpunkte</span></div><button id="increment" class="primary" type="button" disabled>Testpunkt senden <span aria-hidden="true">+</span></button><p id="last-point" class="small">Schicke den ersten Testpunkt.</p><p class="small">Wenn der Zähler auf beiden Geräten steigt, werden Nachrichten gemeinsam übertragen. Lass beide Geräte geöffnet.</p></section>
+    <p id="notice" class="notice" role="status"></p><div class="bottom-actions"><button id="disconnect" class="text-button" type="button" hidden>Verbindung beenden</button><button id="new-invitation" class="text-button" type="button">Neu beginnen</button></div>
+  </main>
+  <footer><span id="offline-status" role="status">Testseite wird vorbereitet …</span><span>Für zwei Mitspieler</span></footer>
+  <script type="module" src="./app/demo/main.js"></script>
+</body>
+</html>
