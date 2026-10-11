@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { LocalPeer } from '../public/app/network/peer.js';
-import { PROTOCOL, encodeFrame } from '../public/app/network/protocol.js';
+import { PROTOCOL, MAX_MESSAGES_PER_SECOND, encodeFrame } from '../public/app/network/protocol.js';
 import { readSignal, encodeSignal } from '../public/app/network/signals.js';
 
 const sdp = 'v=0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=candidate:1 1 UDP 2122260223 192.168.1.3 41230 typ host\r\n';
@@ -78,4 +78,38 @@ test('cancelled preparation cannot revive a closed connection', async () => {
   assert.equal(peer.state, 'closed');
   assert.equal(connection.connectionState, 'closed');
   delay = false;
+});
+
+
+test('a flood of repeated frames closes the peer and no longer reaches the game', async () => {
+  const received = [];
+  const peer = new LocalPeer({ onMessage: value => received.push(value) });
+  const offer = readSignal(await peer.createInvitation('phase10'));
+  const channel = Connection.instances.at(-1).channel;
+  channel.open();
+  const hello = encodeFrame({ version: 1, session: offer.id, game: offer.game, role: 'guest', sequence: 1, kind: 'hello', data: null });
+  channel.receive(hello);
+  for (let index = 1; index < MAX_MESSAGES_PER_SECOND; index++) channel.receive(hello);
+  assert.equal(peer.state, 'connected');
+  channel.receive(hello);
+  assert.equal(peer.state, 'failed'); assert.equal(channel.readyState, 'closed');
+  channel.receive(encodeFrame({ version: 1, session: offer.id, game: offer.game, role: 'guest', sequence: 2, kind: 'data', data: { type: 'increment' } }));
+  assert.deepEqual(received, []);
+  await peer.createInvitation('phase10');
+  const next = Connection.instances.at(-1).channel; next.open();
+  next.receive(encodeFrame({ version: 1, session: peer.session.id, game: 'phase10', role: 'guest', sequence: 1, kind: 'hello', data: null }));
+  assert.equal(peer.state, 'connected'); peer.close();
+});
+
+
+test('the message limit allows ordinary traffic again after a second', async () => {
+  const peer = new LocalPeer();
+  const offer = readSignal(await peer.createInvitation('gruselino'));
+  const channel = Connection.instances.at(-1).channel; channel.open();
+  const hello = encodeFrame({ version: 1, session: offer.id, game: offer.game, role: 'guest', sequence: 1, kind: 'hello', data: null });
+  channel.receive(hello);
+  for (let index = 0; index < 40; index++) channel.receive(hello);
+  await new Promise(resolve => setTimeout(resolve, 1050));
+  for (let index = 0; index < 40; index++) channel.receive(hello);
+  assert.equal(peer.state, 'connected'); peer.close();
 });

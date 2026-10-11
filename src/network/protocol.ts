@@ -1,5 +1,6 @@
 export const PROTOCOL = 'game-multiplayer-v1';
 export const MAX_MESSAGE_BYTES = 16 * 1024;
+export const MAX_MESSAGES_PER_SECOND = 64;
 export type GameId = 'phase10' | 'gruselino';
 export type Role = 'host' | 'guest';
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -22,7 +23,7 @@ export function encodeFrame(frame: Frame): string {
   return raw;
 }
 export function readFrame(raw: unknown, session: Session, remote: Role): Frame {
-  if (typeof raw !== 'string' || new TextEncoder().encode(raw).length > MAX_MESSAGE_BYTES) throw new Error('Ungültige Nachricht.');
+  if (typeof raw !== 'string' || raw.length > MAX_MESSAGE_BYTES || new TextEncoder().encode(raw).length > MAX_MESSAGE_BYTES) throw new Error('Ungültige Nachricht.');
   const value: unknown = JSON.parse(raw);
   if (!isRecord(value) || value.version !== 1 || value.session !== session.id || value.game !== session.game || value.role !== remote || !Number.isSafeInteger(value.sequence) || (value.sequence as number) < 1 || !['hello', 'data'].includes(String(value.kind)) || !isJson(value.data)) throw new Error('Die Nachricht gehört nicht zu dieser Verbindung.');
   return value as unknown as Frame;

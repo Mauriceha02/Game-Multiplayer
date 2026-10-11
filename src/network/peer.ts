@@ -1,4 +1,4 @@
-import { PROTOCOL, encodeFrame, readFrame, type Session, type GameId, type Role, type Json } from './protocol.js';
+import { PROTOCOL, MAX_MESSAGES_PER_SECOND, encodeFrame, readFrame, type Session, type GameId, type Role, type Json } from './protocol.js';
 import { INVITATION_LIFETIME, encodeSignal, readSignal, matchAnswer } from './signals.js';
 
 export type State = 'idle' | 'preparing' | 'waiting' | 'connecting' | 'connected' | 'interrupted' | 'failed' | 'closed';
@@ -14,6 +14,7 @@ export class LocalPeer {
   private events: AbortController | null = null;
   private sent = 0;
   private received = 0;
+  private receivedTimes: number[] = [];
   private welcomed = false;
   private answerAccepted = false;
   private connectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -53,6 +54,10 @@ export class LocalPeer {
     }, { signal });
     channel.addEventListener('message', event => {
       try {
+        const now = performance.now();
+        this.receivedTimes = this.receivedTimes.filter(time => now - time < 1000);
+        if (this.receivedTimes.length >= MAX_MESSAGES_PER_SECOND) throw new Error('Zu viele Nachrichten.');
+        this.receivedTimes.push(now);
         const frame = readFrame(event.data, this.session!, this.role === 'host' ? 'guest' : 'host');
         if (frame.sequence <= this.received) return;
         if (frame.sequence !== this.received + 1) throw new Error('Nachrichtenreihenfolge stimmt nicht.');
@@ -145,7 +150,7 @@ export class LocalPeer {
     this.channel?.close(); this.channel = null;
     this.peer?.close(); this.peer = null;
     this.session = null; this.role = null;
-    this.sent = 0; this.received = 0; this.welcomed = false; this.answerAccepted = false;
+    this.sent = 0; this.received = 0; this.receivedTimes = []; this.welcomed = false; this.answerAccepted = false;
   }
   close(): void { this.dispose(); this.update('closed'); }
 }

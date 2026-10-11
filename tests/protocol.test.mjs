@@ -16,6 +16,7 @@ test('frames are tied to the protocol, session, game and remote role', () => {
 test('messages are bounded by UTF-8 bytes and cannot contain invalid JSON values', () => {
   assert.throws(() => encodeFrame({ ...frame, data: 'ä'.repeat(MAX_MESSAGE_BYTES / 2) }));
   assert.throws(() => readFrame(JSON.stringify({ ...frame, data: 'ä'.repeat(MAX_MESSAGE_BYTES / 2) }), session, 'guest'));
+  assert.throws(() => readFrame('x'.repeat(MAX_MESSAGE_BYTES + 1), session, 'guest'));
   for (const data of [undefined, NaN, Infinity, () => 1, { invalid: undefined }]) assert.throws(() => encodeFrame({ ...frame, data }));
 });
 

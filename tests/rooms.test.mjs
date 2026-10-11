@@ -14,6 +14,13 @@ function storage() {
   return { get: async () => room && structured(room), put: async (_key, value) => { room = structured(value); }, setAlarm: async value => { alarm = value; }, deleteAll: async () => { room = null; }, deleteAlarm: async () => { alarm = null; }, peek: () => ({ room, alarm }) };
 }
 const structured = value => JSON.parse(JSON.stringify(value));
+function responseBody(text, onCancel = () => {}) {
+  let sent = false;
+  return { getReader: () => ({
+    async read() { if (sent) return { done: true }; sent = true; return { done: false, value: new TextEncoder().encode(text) }; },
+    async cancel() { onCancel(); }, releaseLock() {},
+  }) };
+}
 
 test('room invitations are short, scoped to a game, and never accept an arbitrary server URL', () => {
   const raw = `GR1.phase10.${hostKey}.${guestKey}`;
@@ -65,7 +72,7 @@ test('one shared link exchanges both signals automatically, while cancelled host
     const [, id, resource = ''] = /\/rooms\/([^/]+)(?:\/(.*))?$/.exec(url);
     if (!stores.has(id)) stores.set(id, new RoomStore(storage()));
     requests.push({ method: options.method, id, resource });
-    try { const value = await stores.get(id).handle(options.method, resource, options.headers.Authorization.slice(7), options.body && JSON.parse(options.body)); return { ok: true, status: 200, text: async () => JSON.stringify(value) }; }
+    try { const value = await stores.get(id).handle(options.method, resource, options.headers.Authorization.slice(7), options.body && JSON.parse(options.body)); return { ok: true, status: 200, body: responseBody(JSON.stringify(value)) }; }
     catch (error) { return { ok: false, status: error.status }; }
   };
   const errors = [];
@@ -105,4 +112,16 @@ test('HTTP guards reject foreign origins and oversized bodies without breaking l
   const fetched = await send('GET', '/offer', guestKey); assert.deepEqual(await fetched.json(), { offer });
   allowed = false; assert.equal((await send('GET', '/answer')).status, 429); allowed = true;
   assert.equal((await send('DELETE')).status, 200); assert.deepEqual(data.peek(), { room: null, alarm: null });
+});
+
+
+test('oversized service responses are cancelled before a connection can be prepared', async () => {
+  const previous = globalThis.fetch;
+  let cancelled = false, joined = false;
+  const link = new RoomLink('https://games-connect.example.workers.dev', { joinInvitation: async () => { joined = true; } }, () => {});
+  globalThis.fetch = async () => ({ ok: true, body: responseBody('ß'.repeat(35001), () => { cancelled = true; }) });
+  try {
+    await assert.rejects(link.join(`GR1.phase10.${hostKey}.${guestKey}`, 'phase10'), /Ungültige Antwort/);
+    assert.equal(cancelled, true); assert.equal(joined, false);
+  } finally { link.close(); globalThis.fetch = previous; }
 });

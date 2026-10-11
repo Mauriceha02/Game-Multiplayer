@@ -49,8 +49,26 @@ export class RoomLink {
         if (response.status === 429) throw new Error('Zu viele Verbindungsversuche. Bitte warte kurz.');
         throw new Error('Der Verbindungsdienst ist nicht erreichbar. Bitte versuche es erneut.');
       }
-      const text = await response.text();
-      if (text.length > 70000) throw new Error('Ungültige Antwort des Verbindungsdienstes.');
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Ungültige Antwort des Verbindungsdienstes.');
+      const decoder = new TextDecoder('utf-8', { fatal: true });
+      let size = 0, text = '';
+      try {
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          size += part.value.byteLength;
+          if (size > 70000) {
+            await reader.cancel();
+            throw new Error('Ungültige Antwort des Verbindungsdienstes.');
+          }
+          text += decoder.decode(part.value, { stream: true });
+        }
+        text += decoder.decode();
+      } catch (error) {
+        await reader.cancel().catch(() => {});
+        throw error;
+      } finally { reader.releaseLock(); }
       const value: unknown = JSON.parse(text);
       if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Ungültige Antwort des Verbindungsdienstes.');
       return value as Record<string, unknown>;

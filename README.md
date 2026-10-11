@@ -1,13 +1,14 @@
 # Game-Multiplayer
 
-Gemeinsame WebRTC-Verbindung für Phase10 und Gruselino. `dist/` enthält einen Verbindungstest; `bundle/` liefert das Modul für die Spiele.
+WebRTC-Verbindung für Phase10 und Gruselino. `dist/` enthält den Verbindungstest, `bundle/` das gemeinsame Modul.
 
-`npm ci` → `npm run dev` → http://localhost:5176. Prüfen: `npm test`. Bauen: `npm run build`.
+```sh
+npm ci
+npm run dev
+```
 
-Einladungslinks: Der optionale [Cloudflare-Dienst](worker/README.md) tauscht Einladung und Antwort automatisch aus. Seine HTTPS-Adresse steht in `connection.json`; mit `null` bleibt der bisherige Code-Modus aktiv. Spieler benötigen kein Konto. Einladungen und Verbindungsdaten werden spätestens nach 15 Minuten gelöscht; laufende Spiele nutzen den Dienst nicht.
+Öffnen: http://localhost:5176. Prüfen: `npm test`. Build: `npm run build`.
 
-Ohne Dienst: Auf beiden Geräten dieselbe HTTPS-Seite öffnen, Einladung erstellen, beitreten und den Antwortcode beim Gastgeber einfügen. Die Code-Verbindung funktioniert auch ohne Internet, wenn die App bereits offline gespeichert ist.
+Einladungslinks nutzen den [Cloudflare-Dienst](worker/README.md), dessen Adresse in `connection.json` steht. Ohne Internet bleibt der Code-Modus verfügbar. Einladungen gelten 15 Minuten; beide Geräte geöffnet lassen. Die optionale Internet-Hilfe nutzt Google STUN, ohne TURN-Relay.
 
-Die optionale Internet-Hilfe nutzt Googles STUN-Dienst. Es gibt kein TURN-Relay; verschiedene Netze sind nicht überall erreichbar. Beide Fenster geöffnet lassen. Die Spielstände verbleiben in den jeweiligen Spielen.
-
-GitHub Pages auf **GitHub Actions** stellen, `Dev` in `github-pages` freigeben und pushen. Das veröffentlicht den Verbindungstest, nicht den Cloudflare-Dienst.
+Updates: zuerst dieses Repository pushen, dann die Commit-ID in Gruselinos `multiplayer.json` und anschließend Gruselinos Commit-ID in der Spiele-App aktualisieren.
