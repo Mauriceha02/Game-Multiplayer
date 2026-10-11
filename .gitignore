@@ -9,3 +9,5 @@ coverage/
 *.log
 .DS_Store
 .idea/
+worker/.wrangler/
+worker/.dev.vars

@@ -1,0 +1,12 @@
+{
+  "name": "games-connect",
+  "main": "index.mjs",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "vars": { "ALLOWED_ORIGINS": "https://mauriceha02.github.io" },
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "SignalRoom" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SignalRoom"] }],
+  "ratelimits": [{ "name": "REQUEST_LIMITER", "namespace_id": "103101", "simple": { "limit": 100, "period": 60 } }]
+}

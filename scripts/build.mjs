@@ -2,6 +2,12 @@ import { mkdir, readdir, readFile, writeFile, rm, copyFile, lstat } from 'node:f
 import { createHash } from 'node:crypto';
 
 const root = new URL('../', import.meta.url);
+const config = JSON.parse(await readFile(new URL('connection.json', root), 'utf8'));
+const service = config.url;
+if (service !== null && (typeof service !== 'string' || !/^https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.workers\.dev\/?$/.test(service))) throw new Error('connection.json braucht eine HTTPS-workers.dev-Adresse oder null.');
+const origin = service === null ? null : new URL(service).origin;
+await writeFile(new URL('public/app/network/service.js', root), `export const SERVICE_URL = ${JSON.stringify(origin)};\n`);
+
 async function regular(path, directory = false) {
   const parts = path.replace(/\/$/, '').split('/');
   for (let index = 0; index < parts.length; index++) {
@@ -33,7 +39,7 @@ for (const target of ['dist/', 'bundle/']) await rm(new URL(target, root), { rec
 for (const [source, target] of mappings) {
   const destination = new URL('dist/' + target, root);
   await mkdir(new URL('./', destination), { recursive: true });
-  if (source === 'index.html') await writeFile(destination, (await readFile(new URL(source, root), 'utf8')).replace('{{VERSION}}', `1.0.0.${release}`));
+  if (source === 'index.html') await writeFile(destination, (await readFile(new URL(source, root), 'utf8')).replace('{{VERSION}}', `1.0.0.${release}`).replace("connect-src 'self'", "connect-src 'self'" + (origin ? ' ' + origin : '')));
   else await copyFile(new URL(source, root), destination);
   if (target.startsWith('app/network/')) {
     const bundle = new URL('bundle/' + target, root);
